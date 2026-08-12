@@ -34,9 +34,9 @@ VIRUSTOTAL_API_KEY = os.getenv("VIRUSTOTAL_API_KEY", "")
 GREYNOISE_API_KEY = os.getenv("GREYNOISE_API_KEY", "")
 OTX_API_KEY = os.getenv("OTX_API_KEY", "")
 
-# ThreatFox needs no credentials, so the engine still returns
-# something useful when nothing is configured.
-THREATFOX_REQUIRES_KEY = False
+# abuse.ch moved ThreatFox behind authentication. The key is still
+# free but is now required — get one from auth.abuse.ch.
+ABUSECH_API_KEY = os.getenv("ABUSECH_API_KEY", "")
 
 
 def configured_sources() -> dict[str, bool]:
@@ -44,13 +44,13 @@ def configured_sources() -> dict[str, bool]:
     Which intel sources have credentials available.
 
     Checked at startup so the UI can show which sources are active
-    rather than failing silently on every lookup.
+    rather than every lookup failing silently with a 401.
     """
     return {
         "virustotal": bool(VIRUSTOTAL_API_KEY),
         "greynoise": bool(GREYNOISE_API_KEY),
         "otx": bool(OTX_API_KEY),
-        "threatfox": True,
+        "threatfox": bool(ABUSECH_API_KEY),
     }
 
 
@@ -66,12 +66,14 @@ THREATFOX_URL = "https://threatfox-api.abuse.ch/api/v1/"
 REQUEST_TIMEOUT_SECONDS = 15
 
 # VirusTotal's free tier allows 4 requests per minute. Rather than
-# sleeping between calls, results are cached aggressively — the same
-# indicator appears across many alerts.
+# sleeping between calls, concurrent VT requests are capped and
+# results are cached aggressively — the same indicator recurs across
+# many alerts, so most lookups in normal use are cache hits.
+VT_MAX_CONCURRENT = 2
 CACHE_MAX_AGE_HOURS = 24
 
 # Cap on IOCs enriched per alert. A malformed alert or a pasted log
-# dump could contain hundreds; without a cap one request would burn
+# dump could contain hundreds; without a cap, one request would burn
 # an entire daily quota.
 MAX_IOCS_PER_ALERT = 25
 
@@ -79,15 +81,15 @@ MAX_IOCS_PER_ALERT = 25
 # Scoring policy
 # ---------------------------------------------------------------
 
-# VirusTotal aggregates ~70 engines, which disagree constantly.
-# One or two detections is usually a false positive; five or more
-# is meaningful consensus.
+# VirusTotal aggregates ~70 engines, which disagree constantly. One
+# or two detections is usually a false positive; five or more is
+# meaningful consensus.
 VT_MALICIOUS_THRESHOLD = 5
 VT_SUSPICIOUS_THRESHOLD = 2
 
-# GreyNoise classifications that mean "this scans the whole internet,
-# it isn't targeting us". These downgrade an indicator rather than
-# clearing it — a scanner can still deliver a payload.
+# GreyNoise classifications meaning "this scans the whole internet,
+# it is not targeting us". These downgrade an indicator rather than
+# clearing it — a mass scanner can still deliver a payload.
 GREYNOISE_BENIGN_CLASSIFICATIONS = {"benign"}
 GREYNOISE_NOISE_CLASSIFICATIONS = {"benign", "unknown"}
 
@@ -95,13 +97,17 @@ GREYNOISE_NOISE_CLASSIFICATIONS = {"benign", "unknown"}
 # indicator before it is treated as campaign-associated.
 OTX_PULSE_THRESHOLD = 1
 
+# ThreatFox confidence level, 0-100, above which a malware family
+# association is treated as reliable.
+THREATFOX_CONFIDENCE_THRESHOLD = 50
+
 # ---------------------------------------------------------------
 # Verdicts
 # ---------------------------------------------------------------
 
 # The engine recommends; a human decides. There is deliberately no
-# "auto-close" — an analyst must be able to disagree in seconds,
-# which is why every verdict carries its supporting evidence.
+# auto-close — an analyst must be able to disagree in seconds, which
+# is why every verdict carries its supporting evidence.
 VERDICTS = ["escalate", "investigate", "monitor", "close"]
 
 VERDICT_DESCRIPTIONS = {
@@ -112,7 +118,8 @@ VERDICT_DESCRIPTIONS = {
 }
 
 # Score ranges mapping to verdicts. Thresholds are a policy choice,
-# not a fact, and should be tuned to a team's actual capacity.
+# not a fact, and should be tuned to a team's actual capacity — a
+# queue of escalations nobody can work through is worse than none.
 VERDICT_THRESHOLDS = {
     "escalate": 70,
     "investigate": 40,
