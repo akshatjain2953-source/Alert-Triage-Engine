@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alert Triage Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:        #0A0D14;
+  --surface:   #111621;
+  --surface-2: #171D2B;
+  --surface-3: #1E2637;
+  --border:    #242D40;
+  --border-lit:#33405A;
+
+  --text:      #E9EDF5;
+  --text-2:    #A3AEC2;
+  --text-3:    #6B7789;
+
+  --accent:    #6E8BFF;
+  --accent-dim:#2A3560;
+
+  --escalate:    #FF6B6B;
+  --investigate: #FFA23A;
+  --monitor:     #F2CB4D;
+  --close:       #3DDC97;
+
+  --sans: "Plus Jakarta Sans", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --r: 10px;
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  background-image:
+    radial-gradient(900px 500px at 12% -8%, #16203A 0%, transparent 60%),
+    radial-gradient(700px 400px at 92% 0%, #1A1730 0%, transparent 55%);
+  background-attachment: fixed;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection { background: var(--accent-dim); }
+
+/* ───────── nav ───────── */
+
+nav {
+  position: sticky; top: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 20px; flex-wrap: wrap;
+  padding: 14px 28px;
+  background: rgba(10,13,20,.82);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
+}
+
+.brand { display: flex; align-items: center; gap: 11px; }
+.mark {
+  width: 26px; height: 26px; border-radius: 7px;
+  background: linear-gradient(140deg, var(--accent), #A66BFF);
+  display: grid; place-items: center;
+  font-family: var(--mono); font-size: 13px; font-weight: 600; color: #fff;
+}
+.brand b { font-size: 14.5px; font-weight: 700; letter-spacing: -.01em; }
+.brand span { color: var(--text-3); font-size: 12px; }
+
+.sources { display: flex; gap: 6px; flex-wrap: wrap; }
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 11px;
+  padding: 4px 9px; border-radius: 100px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-3);
+}
+.pill i { width: 5px; height: 5px; border-radius: 50%; background: var(--text-3); }
+.pill.on { color: var(--text-2); border-color: var(--border-lit); }
+.pill.on i { background: var(--close); box-shadow: 0 0 7px var(--close); }
+
+/* ───────── layout ───────── */
+
+main {
+  max-width: 1400px; margin: 0 auto;
+  padding: 36px 28px 90px;
+  display: grid; grid-template-columns: minmax(330px, 400px) 1fr; gap: 32px;
+  align-items: start;
+}
+@media (max-width: 980px) {
+  main { grid-template-columns: 1fr; padding: 24px 18px 60px; }
+  nav { padding: 12px 18px; }
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 22px;
+}
+
+.eyebrow {
+  font-family: var(--mono); font-size: 10.5px;
+  letter-spacing: .14em; text-transform: uppercase;
+  color: var(--text-3); margin: 0 0 10px;
+}
+
+/* ───────── input ───────── */
+
+.panel { position: sticky; top: 78px; }
+@media (max-width: 980px) { .panel { position: static; } }
+
+h1 {
+  font-size: 25px; font-weight: 800; letter-spacing: -.025em;
+  line-height: 1.2; margin: 0 0 10px;
+}
+h1 em { font-style: normal; color: var(--accent); }
+
+.sub { color: var(--text-2); font-size: 13.5px; margin: 0 0 20px; }
+
+textarea {
+  width: 100%; min-height: 175px; padding: 13px;
+  background: var(--bg); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px;
+  font-family: var(--mono); font-size: 12px; line-height: 1.65;
+  resize: vertical;
+}
+textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+textarea::placeholder { color: var(--text-3); }
+
+.chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 12px 0 18px; }
+.chip {
+  font-family: var(--mono); font-size: 11px;
+  padding: 5px 10px; border-radius: 100px;
+  border: 1px solid var(--border); background: var(--surface-2);
+  color: var(--text-2); cursor: pointer; transition: .15s;
+}
+.chip:hover { border-color: var(--accent); color: var(--text); }
+.chip.sel { background: var(--accent-dim); border-color: var(--accent); color: var(--text); }
+.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+button.go {
+  width: 100%; padding: 12px; border: none; border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent), #8B6BFF);
+  color: #fff; font-family: var(--sans); font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: .18s;
+}
+button.go:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(110,139,255,.3); }
+button.go:disabled { opacity: .5; cursor: wait; }
+button.go:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.hint { font-family: var(--mono); font-size: 10.5px; color: var(--text-3); text-align: center; margin: 9px 0 0; }
+
+/* ───────── results ───────── */
+
+.empty {
+  border: 1px dashed var(--border); border-radius: var(--r);
+  padding: 70px 30px; text-align: center;
+  color: var(--text-3); font-family: var(--mono); font-size: 12.5px; line-height: 1.9;
+}
+
+.verdict {
+  display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+  padding: 22px; border-radius: var(--r);
+  background: var(--surface); border: 1px solid var(--border);
+  border-left: 3px solid var(--vc, var(--border));
+  margin-bottom: 14px;
+}
+.vword { font-size: 34px; font-weight: 800; letter-spacing: -.03em; color: var(--vc); line-height: 1; }
+.vdesc { color: var(--text-2); font-size: 13.5px; margin: 6px 0 0; max-width: 55ch; }
+.gauge { margin-left: auto; text-align: right; }
+.gauge b { font-family: var(--mono); font-size: 30px; font-weight: 600; color: var(--vc); }
+.gauge span { display: block; font-family: var(--mono); font-size: 10px; letter-spacing: .1em; color: var(--text-3); }
+
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.stat { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 13px 15px; }
+.stat b { display: block; font-family: var(--mono); font-size: 21px; font-weight: 600; line-height: 1.2; }
+.stat span { font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em; color: var(--text-3); }
+
+.warn {
+  display: flex; gap: 11px; padding: 13px 16px; margin-bottom: 14px;
+  background: rgba(255,162,58,.07); border: 1px solid rgba(255,162,58,.28);
+  border-radius: 8px; font-size: 13px; color: var(--text-2);
+}
+.warn b { color: var(--investigate); }
+
+/* ───────── filters ───────── */
+
+.filters {
+  display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+  padding: 12px 14px; margin-bottom: 12px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+}
+.fgroup { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
+.flabel { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-3); margin-right: 3px; }
+.sep { width: 1px; height: 20px; background: var(--border); }
+
+.search {
+  flex: 1; min-width: 130px; padding: 6px 11px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 100px;
+  color: var(--text); font-family: var(--mono); font-size: 11.5px;
+}
+.search:focus { outline: none; border-color: var(--accent); }
+.search::placeholder { color: var(--text-3); }
+
+.fcount { font-family: var(--mono); font-size: 10.5px; color: var(--text-3); margin-left: auto; }
+
+/* ───────── ledger ───────── */
+
+.entry {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 17px 19px; margin-bottom: 9px;
+  transition: border-color .15s;
+}
+.entry:hover { border-color: var(--border-lit); }
+.entry[hidden] { display: none; }
+
+.ehead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ioc { font-family: var(--mono); font-size: 13.5px; font-weight: 500; word-break: break-all; }
+.kind {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 4px;
+  background: var(--surface-3); color: var(--text-3);
+}
+.tally { margin-left: auto; display: flex; align-items: center; gap: 9px; }
+.tally b { font-family: var(--mono); font-size: 17px; font-weight: 600; }
+.vtag {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .09em; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 100px; border: 1px solid currentColor; opacity: .9;
+}
+
+.lines { margin: 13px 0 0; padding: 0; list-style: none; }
+.line {
+  display: grid; grid-template-columns: 46px 88px 1fr; gap: 11px;
+  font-family: var(--mono); font-size: 11.5px; line-height: 1.7; padding: 2px 0;
+}
+@media (max-width: 620px) { .line { grid-template-columns: 46px 1fr; } .line .src { display: none; } }
+.pts { text-align: right; font-weight: 600; }
+.pts.plus  { color: var(--escalate); }
+.pts.minus { color: var(--close); }
+.src { color: var(--text-3); }
+.why { color: var(--text-2); }
+
+.sum {
+  display: grid; grid-template-columns: 46px 1fr; gap: 11px;
+  margin-top: 9px; padding-top: 9px; border-top: 1px dashed var(--border);
+  font-family: var(--mono); font-size: 11.5px; font-weight: 600;
+}
+.sum .pts { text-align: right; }
+.quiet { font-family: var(--mono); font-size: 11.5px; color: var(--text-3); margin: 11px 0 0; }
+
+/* ───────── note ───────── */
+
+.nhead { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 26px 0 10px; }
+.tabs { display: flex; gap: 5px; }
+.tab {
+  font-family: var(--mono); font-size: 11px; padding: 5px 11px;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text-3); cursor: pointer;
+}
+.tab.sel { background: var(--accent-dim); border-color: var(--accent); color: var(--text); }
+.tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+pre.note {
+  margin: 0; padding: 20px; max-height: 440px; overflow-y: auto;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r);
+  font-family: var(--mono); font-size: 11.5px; line-height: 1.75;
+  color: var(--text-2); white-space: pre-wrap; word-break: break-word;
+}
+
+.v-escalate    { --vc: var(--escalate);    color: var(--escalate); }
+.v-investigate { --vc: var(--investigate); color: var(--investigate); }
+.v-monitor     { --vc: var(--monitor);     color: var(--monitor); }
+.v-close       { --vc: var(--close);       color: var(--close); }
+
+footer {
+  border-top: 1px solid var(--border); padding: 22px 28px; text-align: center;
+  font-family: var(--mono); font-size: 11px; color: var(--text-3);
+}
+footer a { color: var(--text-2); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .entry { animation: up .3s ease-out both; }
+  @keyframes up { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="brand">
+    <div class="mark">◆</div>
+    <div><b>Alert Triage Engine</b> <span>· SOC L1</span></div>
+  </div>
+  <div class="sources" id="sources"></div>
+</nav>
+
+<main>
+  <section class="panel">
+    <div class="card">
+      <p class="eyebrow">Input</p>
+      <h1>Paste an alert. Get the <em>reasoning</em>, not just a score.</h1>
+      <p class="sub">Indicators are extracted, checked against four threat
+        intelligence sources at once, and scored. Every point shows the
+        evidence behind it.</p>
+
+      <textarea id="input" spellcheck="false"
+        placeholder="Workstation WS-4471 contacted 185.220.101.47 over 443 and downloaded a file with hash 44d88612fea8a8f36de82e1278abb02f"></textarea>
+
+      <div class="chips" id="samples"></div>
+      <button class="go" id="go">Triage alert</button>
+      <p class="hint">Ctrl + Enter to run</p>
+    </div>
+  </section>
+
+  <section id="results">
+    <div class="empty">No alert triaged yet.<br>Paste one on the left, or load a sample.</div>
+  </section>
+</main>
+
+<footer>
+  Recommendations only — not a determination of compromise. Analyst judgement required.
+  &nbsp;·&nbsp; <a href="/docs">API docs</a>
+</footer>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+
+let data = null, notes = { text: "", md: "" };
+const filters = { verdict: "all", type: "all", enriched: false, sort: "score", q: "" };
+
+/* ---- status ---- */
+async function loadSources() {
+  try {
+    const d = await (await fetch("/api/health")).json();
+    $("sources").innerHTML = Object.entries(d.configured_sources).map(([n, on]) =>
+      `<span class="pill ${on ? "on" : ""}" title="${on ? "Credentials configured" : "No API key — skipped"}"><i></i>${n}</span>`).join("");
+  } catch {
+    $("sources").innerHTML = '<span class="pill"><i></i>engine unreachable</span>';
+  }
+}
+
+/* ---- samples ---- */
+async function loadSamples() {
+  try {
+    const d = await (await fetch("/api/samples")).json();
+    if (!d.samples.length) return;
+    $("samples").innerHTML = d.samples.map((s, i) =>
+      `<button class="chip" data-i="${i}">${esc(s.name)}</button>`).join("");
+    $("samples").querySelectorAll(".chip").forEach(b => b.onclick = () => {
+      $("input").value = JSON.stringify(d.samples[b.dataset.i].alert, null, 2);
+    });
+  } catch {}
+}
+
+/* ---- triage ---- */
+async function triage() {
+  const text = $("input").value.trim();
+  if (!text) {
+    $("results").innerHTML = '<div class="empty">Nothing to triage yet — paste an alert first.</div>';
+    return;
+  }
+  $("go").disabled = true; $("go").textContent = "Checking sources…";
+  $("results").innerHTML = '<div class="empty">Querying threat intelligence…<br>Uncached indicators take a few seconds.</div>';
+
+  let body;
+  try {
+    const p = JSON.parse(text);
+    body = (p && typeof p === "object" && !Array.isArray(p)) ? { alert: p } : { raw_text: text };
+  } catch { body = { raw_text: text }; }
+
+  try {
+    const r = await fetch("/api/triage", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    if (!r.ok) {
+      const e = await r.json().catch(() => ({}));
+      throw new Error(e.detail || `Request failed (${r.status})`);
+    }
+    data = await r.json();
+    notes = { text: data.case_note || "", md: data.case_note_markdown || "" };
+    render();
+  } catch (e) {
+    $("results").innerHTML = `<div class="empty">Triage failed: ${esc(e.message)}<br>Check the engine is running and try again.</div>`;
+  } finally {
+    $("go").disabled = false; $("go").textContent = "Triage alert";
+  }
+}
+
+/* ---- filtering ---- */
+function visible() {
+  let list = [...(data.indicators || [])];
+  if (filters.verdict !== "all") list = list.filter(i => i.verdict === filters.verdict);
+  if (filters.type !== "all") {
+    list = list.filter(i => filters.type === "hash"
+      ? ["md5", "sha1", "sha256"].includes(i.type) : i.type === filters.type);
+  }
+  if (filters.enriched) list = list.filter(i => i.sources && Object.keys(i.sources).length);
+  if (filters.q) {
+    const q = filters.q.toLowerCase();
+    list = list.filter(i => i.value.toLowerCase().includes(q)
+      || (i.signals || []).some(s => s.reason.toLowerCase().includes(q)));
+  }
+  if (filters.sort === "type") list.sort((a, b) => a.type.localeCompare(b.type) || b.score - a.score);
+  else list.sort((a, b) => b.score - a.score);
+  return list;
+}
+
+function filterBar() {
+  const types = [...new Set((data.indicators || []).map(i =>
+    ["md5", "sha1", "sha256"].includes(i.type) ? "hash" : i.type))];
+  const verdicts = ["escalate", "investigate", "monitor", "close"]
+    .filter(v => (data.indicators || []).some(i => i.verdict === v && i.sources && Object.keys(i.sources).length));
+
+  const chip = (group, val, label, on) =>
+    `<button class="chip ${on ? "sel" : ""}" data-f="${group}" data-v="${val}">${esc(label)}</button>`;
+
+  return `<div class="filters">
+    <span class="flabel">Verdict</span>
+    <div class="fgroup">
+      ${chip("verdict", "all", "all", filters.verdict === "all")}
+      ${verdicts.map(v => chip("verdict", v, v, filters.verdict === v)).join("")}
+    </div>
+    <div class="sep"></div>
+    <span class="flabel">Type</span>
+    <div class="fgroup">
+      ${chip("type", "all", "all", filters.type === "all")}
+      ${types.map(t => chip("type", t, t, filters.type === t)).join("")}
+    </div>
+    <div class="sep"></div>
+    <div class="fgroup">
+      ${chip("enriched", "1", "enriched only", filters.enriched)}
+      ${chip("sort", filters.sort === "score" ? "type" : "score",
+             filters.sort === "score" ? "sort: score" : "sort: type", false)}
+    </div>
+    <input class="search" id="q" placeholder="filter…" value="${esc(filters.q)}">
+    <span class="fcount" id="fcount"></span>
+  </div>`;
+}
+
+function entryHTML(i) {
+  const enriched = i.sources && Object.keys(i.sources).length;
+  const lines = (i.signals || []).map(s => `
+    <li class="line">
+      <span class="pts ${s.points >= 0 ? "plus" : "minus"}">${s.points >= 0 ? "+" : "−"}${Math.abs(s.points)}</span>
+      <span class="src">${esc(s.source)}</span>
+      <span class="why">${esc(s.reason)}</span>
+    </li>`).join("");
+
+  let body;
+  if (lines) {
+    body = `<ul class="lines">${lines}</ul>
+      <div class="sum"><span class="pts">=${i.score}</span><span class="v-${i.verdict}">${esc(i.verdict)}</span></div>`;
+  } else if (enriched) {
+    body = '<p class="quiet">Checked — no adverse findings from any source.</p>';
+  } else {
+    body = `<p class="quiet">${esc(i.note || "Not enriched.")}</p>`;
+  }
+
+  return `<article class="entry">
+    <div class="ehead">
+      <span class="ioc">${esc(i.defanged || i.value)}</span>
+      <span class="kind">${esc(i.type)}</span>
+      ${enriched ? `<span class="tally v-${i.verdict}"><b>${i.score}</b><span class="vtag">${esc(i.verdict)}</span></span>` : ""}
+    </div>${body}
+  </article>`;
+}
+
+function paintLedger() {
+  const list = visible();
+  $("ledger").innerHTML = list.length
+    ? list.map(entryHTML).join("")
+    : '<div class="empty">No indicators match these filters.</div>';
+  const el = $("fcount");
+  if (el) el.textContent = `${list.length} of ${data.indicators.length}`;
+}
+
+function bindFilters() {
+  document.querySelectorAll(".filters .chip").forEach(b => b.onclick = () => {
+    const { f, v } = b.dataset;
+    if (f === "enriched") filters.enriched = !filters.enriched;
+    else filters[f] = v;
+    $("results").querySelector(".filters").outerHTML = filterBar();
+    bindFilters(); paintLedger();
+  });
+  const q = $("q");
+  if (q) q.oninput = () => { filters.q = q.value; paintLedger(); };
+}
+
+function render() {
+  const d = data;
+  const degraded = d.degraded_sources?.length ? `
+    <div class="warn"><span>⚠</span><div><b>Reduced confidence.</b>
+    These sources could not be reached: ${esc(d.degraded_sources.join(", "))}.
+    A clean result from a source that did not respond is not a clean result.</div></div>` : "";
+
+  const ledger = d.indicators?.length
+    ? `${filterBar()}<div id="ledger"></div>` : "";
+
+  const note = notes.text ? `
+    <div class="nhead">
+      <p class="eyebrow" style="margin:0">Case note</p>
+      <div class="tabs">
+        <button class="tab sel" id="t-text">Plain text</button>
+        <button class="tab" id="t-md">Markdown</button>
+        <button class="tab" id="copy">Copy</button>
+      </div>
+    </div>
+    <pre class="note" id="noteBox">${esc(notes.text)}</pre>` : "";
+
+  $("results").innerHTML = `
+    <div class="verdict v-${d.verdict}">
+      <div>
+        <div class="vword">${esc(d.verdict)}</div>
+        <p class="vdesc">${esc(d.verdict_description)}</p>
+      </div>
+      <div class="gauge"><b>${d.score}</b><span>/100 · ${esc(d.confidence)}</span></div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><b>${d.indicator_count}</b><span>INDICATORS</span></div>
+      <div class="stat"><b>${d.enriched_count}</b><span>ENRICHED</span></div>
+      <div class="stat"><b>${d.context_only_count}</b><span>CONTEXT ONLY</span></div>
+      ${d.driving_indicator ? `<div class="stat"><b style="font-size:12px">${esc(d.driving_indicator)}</b><span>DRIVING INDICATOR</span></div>` : ""}
+    </div>
+
+    ${degraded}${ledger}${note}`;
+
+  if (d.indicators?.length) { bindFilters(); paintLedger(); }
+
+  const tText = $("t-text"), tMd = $("t-md"), box = $("noteBox"), copy = $("copy");
+  let mode = "text";
+  if (tText) {
+    const swap = m => {
+      mode = m; box.textContent = m === "text" ? notes.text : notes.md;
+      tText.classList.toggle("sel", m === "text");
+      tMd.classList.toggle("sel", m === "md");
+    };
+    tText.onclick = () => swap("text");
+    tMd.onclick = () => swap("md");
+    copy.onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(mode === "text" ? notes.text : notes.md);
+        copy.textContent = "Copied"; setTimeout(() => (copy.textContent = "Copy"), 1500);
+      } catch { copy.textContent = "Select the text to copy"; }
+    };
+  }
+}
+
+$("go").onclick = triage;
+$("input").addEventListener("keydown", e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") triage();
+});
+
+loadSources();
+loadSamples();
+</script>
+</body>
+</html>

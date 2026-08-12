@@ -7,6 +7,7 @@ environment, never hardcoded.
 """
 
 import os
+import tempfile
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -22,9 +23,19 @@ load_dotenv()
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 DATA_DIR = PROJECT_ROOT / "data"
-CACHE_DIR = DATA_DIR / "cache"
 SAMPLES_DIR = DATA_DIR / "samples"
 STATIC_DIR = PROJECT_ROOT / "static"
+
+# Cache location is overridable because hosted environments often mount
+# the project directory read-only. Falling back to a temp path keeps
+# the engine working there; the cache is disposable by design.
+CACHE_DIR = Path(os.getenv("CACHE_DIR", str(DATA_DIR / "cache")))
+
+try:
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+except OSError:
+    CACHE_DIR = Path(tempfile.gettempdir()) / "alert-triage-cache"
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 # ---------------------------------------------------------------
 # API credentials
@@ -76,6 +87,12 @@ CACHE_MAX_AGE_HOURS = 24
 # dump could contain hundreds; without a cap, one request would burn
 # an entire daily quota.
 MAX_IOCS_PER_ALERT = 25
+
+# A public deployment exposes the engine's API quota to anyone who
+# finds the URL. A per-client cap stops one visitor exhausting a
+# day's lookups in a single burst.
+RATE_LIMIT_REQUESTS = int(os.getenv("RATE_LIMIT_REQUESTS", "20"))
+RATE_LIMIT_WINDOW_SECONDS = 3600
 
 # ---------------------------------------------------------------
 # Scoring policy

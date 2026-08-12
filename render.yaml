@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: alert-triage-engine
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn src.api:app --host 0.0.0.0 --port $PORT
+    envVars:
+      # Secrets are set in the Render dashboard, never in this file.
+      - key: VIRUSTOTAL_API_KEY
+        sync: false
+      - key: GREYNOISE_API_KEY
+        sync: false
+      - key: OTX_API_KEY
+        sync: false
+      - key: ABUSECH_API_KEY
+        sync: false
+      - key: CACHE_DIR
+        value: /tmp/triage-cache
+      - key: RATE_LIMIT_REQUESTS
+        value: "20"
