@@ -1,0 +1,13 @@
+{
+  "alert_id": "a1b2-4471",
+  "timestamp": "2026-08-11T14:22:03Z",
+  "rule_name": "Outbound connection to suspicious IP",
+  "severity": "medium",
+  "source_host": "WS-4471",
+  "source_user": "akshat.j",
+  "src_ip": "10.4.12.88",
+  "dest_ip": "185.220.101.47",
+  "dest_port": 443,
+  "process": "chrome.exe",
+  "description": "Workstation WS-4471 contacted 185.220.101.47 (rule v2.1.4.7). Process chrome.exe also resolved cdn-delivery.example.com and downloaded a file with hash 44d88612fea8a8f36de82e1278abb02f from hxxp://staging-cdn[.]example[.]net/update.exe"
+}
