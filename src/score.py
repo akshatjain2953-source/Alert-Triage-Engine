@@ -183,10 +183,13 @@ def score_otx(result: dict[str, Any]) -> list[dict[str, Any]]:
     reason = f"referenced in {count} published threat report" \
              f"{'s' if count != 1 else ''}"
 
-    if tags:
+    # Pulse names are written deliberately; tags are free text and
+    # frequently contain file attributes, dates or internal report
+    # labels rather than threat classifications.
+    if pulses:
+        reason += f" — including \"{pulses[0][:60]}\""
+    elif tags:
         reason += f" — tagged {', '.join(tags[:3])}"
-    elif pulses:
-        reason += f" — including \"{pulses[0][:50]}\""
 
     return [_signal(points, "otx", reason)]
 

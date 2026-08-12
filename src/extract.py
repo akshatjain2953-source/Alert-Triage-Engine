@@ -74,7 +74,8 @@ def refang(text: str) -> str:
     clickable link in a ticket or chat. Input may arrive either way.
     """
     return (
-        text.replace("[.]", ".")
+        text.replace("[://]", "://")
+        .replace("[.]", ".")
         .replace("(.)", ".")
         .replace("[:]", ":")
         .replace("hxxp", "http")
@@ -85,11 +86,24 @@ def refang(text: str) -> str:
 
 
 def defang(indicator: str) -> str:
-    """Make an indicator safe to paste into a ticket or chat."""
-    return (
-        indicator.replace("http", "hxxp")
-        .replace(".", "[.]")
-    )
+    """
+    Make an indicator safe to paste into a ticket or chat.
+
+    Only the scheme and host are defanged. Path components and
+    filenames are left intact — it is the domain that makes a string
+    auto-link, and update[.]exe is harder to read than update.exe
+    with no safety benefit.
+    """
+    if "://" not in indicator:
+        return indicator.replace(".", "[.]")
+
+    scheme, _, rest = indicator.partition("://")
+    host, slash, path = rest.partition("/")
+
+    safe_scheme = scheme.replace("http", "hxxp")
+    safe_host = host.replace(".", "[.]")
+
+    return f"{safe_scheme}[://]{safe_host}{slash}{path}"
 
 
 # ---------------------------------------------------------------
