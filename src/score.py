@@ -41,9 +41,12 @@ def score_virustotal(result: dict[str, Any]) -> list[dict[str, Any]]:
     signals = []
 
     if malicious >= config.VT_MALICIOUS_THRESHOLD:
-        # Scale with consensus, but cap it — 40 detections is not
-        # meaningfully worse than 20; both are unambiguous.
-        points = min(30 + malicious * 2, 50)
+        # Scale with consensus. Overwhelming agreement across engines
+        # is sufficient on its own — no analyst treats 45 of 70 as
+        # ambiguous — so the cap sits above the escalate threshold
+        # rather than below it. Ten detections still lands in
+        # "investigate", which is where it belongs.
+        points = min(30 + malicious * 2, 75)
         signals.append(_signal(
             points, "virustotal",
             f"{ratio} engines flag this as malicious",
