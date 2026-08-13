@@ -138,7 +138,38 @@ textarea {
 textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
 textarea::placeholder { color: var(--text-3); }
 
-.chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 12px 0 18px; }
+/* ───────── file drop ───────── */
+
+.drop { position: relative; }
+.drop.over textarea {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+.drop.over::after {
+  content: "Drop file to load";
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  background: rgba(10,13,20,.86);
+  border: 1px dashed var(--accent); border-radius: 8px;
+  font-family: var(--mono); font-size: 12px; color: var(--accent);
+  pointer-events: none;
+}
+
+.filerow { display: flex; align-items: center; gap: 8px; margin-top: 9px; }
+.filebtn {
+  font-family: var(--mono); font-size: 11px;
+  padding: 5px 11px; border-radius: 100px;
+  border: 1px solid var(--border); background: var(--surface-2);
+  color: var(--text-2); cursor: pointer;
+}
+.filebtn:hover { border-color: var(--accent); color: var(--text); }
+.filebtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.filename {
+  font-family: var(--mono); font-size: 10.5px; color: var(--text-3);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 14px 0 18px; }
 .chip {
   font-family: var(--mono); font-size: 11px;
   padding: 5px 10px; border-radius: 100px;
@@ -222,7 +253,6 @@ button.go:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px;
   transition: border-color .15s;
 }
 .entry:hover { border-color: var(--border-lit); }
-.entry[hidden] { display: none; }
 
 .ehead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .ioc { font-family: var(--mono); font-size: 13.5px; font-weight: 500; word-break: break-all; }
@@ -313,8 +343,16 @@ footer a { color: var(--text-2); }
         intelligence sources at once, and scored. Every point shows the
         evidence behind it.</p>
 
-      <textarea id="input" spellcheck="false"
-        placeholder="Workstation WS-4471 contacted 185.220.101.47 over 443 and downloaded a file with hash 44d88612fea8a8f36de82e1278abb02f"></textarea>
+      <div class="drop" id="drop">
+        <textarea id="input" spellcheck="false"
+          placeholder="Workstation WS-4471 contacted 185.220.101.47 over 443 and downloaded a file with hash 44d88612fea8a8f36de82e1278abb02f"></textarea>
+      </div>
+
+      <div class="filerow">
+        <button class="filebtn" id="pick">Load a file</button>
+        <input type="file" id="file" accept=".json,.txt,.log,.eml,.csv" hidden>
+        <span class="filename" id="fname">or drag one onto the box</span>
+      </div>
 
       <div class="chips" id="samples"></div>
       <button class="go" id="go">Triage alert</button>
@@ -359,6 +397,7 @@ async function loadSamples() {
       `<button class="chip" data-i="${i}">${esc(s.name)}</button>`).join("");
     $("samples").querySelectorAll(".chip").forEach(b => b.onclick = () => {
       $("input").value = JSON.stringify(d.samples[b.dataset.i].alert, null, 2);
+      $("fname").textContent = "or drag one onto the box";
     });
   } catch {}
 }
@@ -561,6 +600,58 @@ $("go").onclick = triage;
 $("input").addEventListener("keydown", e => {
   if ((e.metaKey || e.ctrlKey) && e.key === "Enter") triage();
 });
+
+/* ---- file loading ----
+   Files are read in the browser and their text goes to the existing
+   endpoint. Nothing is uploaded, so there is no server-side file
+   handling to get wrong — no temp files, no path traversal, and no
+   filesystem writes on a read-only host. */
+
+const MAX_FILE_BYTES = 500 * 1024;
+const OK_EXT = [".json", ".txt", ".log", ".eml", ".csv"];
+
+function loadFile(file) {
+  if (!file) return;
+
+  const dot = file.name.lastIndexOf(".");
+  const ext = dot === -1 ? "" : file.name.slice(dot).toLowerCase();
+
+  if (!OK_EXT.includes(ext)) {
+    $("fname").textContent = `${ext || "That type"} is not supported — use ${OK_EXT.join(", ")}`;
+    return;
+  }
+  if (file.size > MAX_FILE_BYTES) {
+    $("fname").textContent = `File is ${Math.round(file.size / 1024)}KB — 500KB maximum`;
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    let text = String(reader.result);
+    // Pretty-print JSON so the loaded alert stays readable.
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed && typeof parsed === "object") {
+        text = JSON.stringify(parsed, null, 2);
+      }
+    } catch { /* not JSON — use the raw text */ }
+
+    $("input").value = text;
+    $("fname").textContent = `${file.name} · ${Math.round(file.size / 1024)}KB`;
+  };
+  reader.onerror = () => { $("fname").textContent = "Could not read that file"; };
+  reader.readAsText(file);
+}
+
+$("pick").onclick = () => $("file").click();
+$("file").onchange = e => loadFile(e.target.files[0]);
+
+const drop = $("drop");
+["dragenter", "dragover"].forEach(ev =>
+  drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach(ev =>
+  drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", e => loadFile(e.dataTransfer.files[0]));
 
 loadSources();
 loadSamples();
