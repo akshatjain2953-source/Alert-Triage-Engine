@@ -80,7 +80,7 @@ The case note is the actual deliverable. Everything upstream of it exists to pro
 
 API keys are held server-side in environment variables and are never exposed to the browser. Rate limiting sits in front of the enrichment endpoint, before any upstream call is made.
 
-![Architecture diagram](docs/architecture.png)
+<![Architecture diagram](docs/architecture.png)>
 
 ### Data flow
 
