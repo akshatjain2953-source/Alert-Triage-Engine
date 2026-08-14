@@ -6,7 +6,7 @@ Automated first-pass triage for security alerts — extracts indicators of compr
 
 > Hosted on Render's free tier — the first request after a period of inactivity takes ~50 seconds to wake the instance. Subsequent requests are fast.
 
-![Malicious verdict with signal ledger](docs/screenshots/verdict-malicious.png)
+![Malicious verdict with signal ledger](docs/screenshots/02-verdict-malicious.png)
 
 ---
 
@@ -35,10 +35,10 @@ The lookups themselves are mechanical. The judgement is not. This tool automates
 
 | | |
 |---|---|
-| ![Input view](docs/screenshots/input.png) | ![Benign verdict](docs/screenshots/verdict-benign.png) |
+| ![Input view](docs/screenshots/01-input.png) | ![Benign verdict](docs/screenshots/03-verdict-benign.png) |
 | Paste raw alert text — no structured format required | A clean indicator: the engine discriminates rather than flagging everything |
 
-![Analyst case note](docs/screenshots/case-note.png)
+![Analyst case note](docs/screenshots/04-case-note.png)
 
 The case note is the actual deliverable. Everything upstream of it exists to produce something an analyst can put in a ticket.
 
@@ -261,7 +261,7 @@ Then open http://localhost:8000
 pytest -v
 ```
 
-![Test suite passing](docs/screenshots/test-passing.png)
+![Test suite passing](docs/screenshots/05-test-passing.png)
 
 ---
 
